@@ -1,0 +1,183 @@
+<html>
+    <title>
+        Note application
+    </title>
+    <style>
+        table, th, td {
+          border:1px solid black;
+        }
+        </style>
+    <body>
+        <div>
+            <h1>Notes</h1>
+        </div>
+        <div style = "padding-bottom:10px">
+            <form id="form">
+                <div>
+                    <div style = "padding:10px">
+                        <input id = "author" type = "text" name = "author" placeholder = "Author name">
+                    </div>
+                    <div style = "padding:10px">
+                        <input id = "textField" type = "text" name = "textField" placeholder = "Type your text">
+                    </div>
+                    <div style = "padding:10px">
+                        <input id = "attachments" type = "file" name = "attachments" multiple placeholder = "Attach files">
+                    </div>
+                    <div style = "padding:10px">
+                        <input type="submit" value = "Add Note">
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div>
+            <table id = notesList>
+                <tr>
+                    <th>Author</th>
+                    <th>Text</th>
+                    <th>Attachments</th>
+                    <th>Edit</th>
+                    <th>Delete</th>
+                </tr>
+  
+            </table>
+        </div>
+
+        <script>
+
+        function getCookie(name) {
+		    var cookieValue = null;
+		    if (document.cookie && document.cookie !== '') {
+		        var cookies = document.cookie.split(';');
+		        for (var i = 0; i < cookies.length; i++) {
+		            var cookie = cookies[i].trim();
+		            // Does this cookie string begin with the name we want?
+		            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+		                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+		                break;
+		            }
+		        }
+		    }
+		    return cookieValue;
+		}
+		var csrftoken = getCookie('csrftoken');
+        var list_snapshot = []
+        var activeItem = null
+
+            buildList()
+
+            function buildList(){
+                var wrapper = document.getElementById('notesList')
+
+
+
+                var url = 'http://127.0.0.1:8000/api/fetch/'
+                //fetch api function
+                fetch(url)
+                .then((resp) => resp.json())
+                .then(function(data){
+                    console.log(data)
+                    var list = data
+                    for(var i in list){
+
+                        try{
+                            document.getElementById(`row${i}`).remove()
+                        }catch(err){
+
+                        }
+
+                        var item = `
+                            <tr id = "row${i}">
+                                <td>${list[i].author}</td>
+                                <td>${list[i].text}</td>
+                                <td>${list[i].attachment}</td>
+                                <td><button class = "edit">Edit</button></td>
+                                <td><button class = "delete">Delete</button></td>
+                            </tr>
+                        `
+                        wrapper.innerHTML += item
+
+                    }
+                    if(list_snapshot.length > list.length){
+                        for(var i = list.length; i < list_snapshot.length; i++){
+                            document.getElementById(`row${i}`).remove()
+                        }
+                    }
+
+                    list_snapshot = list
+
+                    for(var i in list){
+                        var editBtn = document.getElementsByClassName('edit')[i]
+                        var deleteBtn = document.getElementsByClassName('delete')[i]
+
+                        editBtn.addEventListener('click', (function(item){
+                           return function(){
+                            editItem(item)
+                           }
+                        })(list[i]))
+
+                        deleteBtn.addEventListener('click', (function(item){
+                           return function(){
+                            deleteItem(item)
+                           }
+                        })(list[i]))
+                    }
+                })
+            }
+            var form = document.getElementById('form')
+            
+            form.addEventListener('submit', function(e){
+                e.preventDefault()
+                console.log('From Submit')
+                var url = 'http://127.0.0.1:8000/api/add/'
+                if(activeItem != null){
+                    console.log('hi')
+                    var url = `http://127.0.0.1:8000/api/update/${activeItem.id}/`
+                    activeItem = null
+                }
+                var author = document.getElementById('author').value
+                var text = document.getElementById('textField').value
+                var attachment = document.getElementById('attachments').value
+
+                fetch(url, {
+                    method: 'POST',
+                    headers:{
+                        'Content-type':'application/json',
+                        'X-CSRFToken':csrftoken,
+                    },
+                    body:JSON.stringify({
+                        'author':author,
+                        'text': text,
+                        'attachment':attachment
+                    })
+                }).then(function(response){
+                    buildList()
+                    document.getElementById('form').reset()
+                })
+            })
+
+            function editItem(item){
+                console.log('hi', item)
+                activeItem = item
+                document.getElementById('author').value = activeItem.author
+                document.getElementById('textField').value = activeItem.text
+                document.getElementById('attachments').value = activeItem.attachment
+            }
+
+            function deleteItem(item){
+                console.log('delete')
+                fetch(`http://127.0.0.1:8000/api/delete/${item.id}/`,{
+                    method : 'DELETE',
+                    headers:{
+                        'Content-type':'application/json',
+                        'X-CSRFToken':csrftoken,
+                    } 
+                }).then ((response)=> {
+                    buildList()
+                })
+            }
+
+
+        </script>
+    </body>
+</html>
